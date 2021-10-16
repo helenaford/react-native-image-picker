@@ -27,7 +27,8 @@ export interface Asset {
   type?: string; //TODO
   fileName?: string;
   duration?: number;
-  timestamp?: string,
+  timestamp?: string;
+  id?: string;
 }
 
 export interface ImagePickerResponse {
