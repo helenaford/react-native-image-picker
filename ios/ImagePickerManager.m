@@ -156,20 +156,22 @@ RCT_EXPORT_METHOD(launchImageLibrary:(NSDictionary *)options callback:(RCTRespon
     asset[@"fileName"] = fileName;
     asset[@"width"] = @(image.size.width);
     asset[@"height"] = @(image.size.height);
-    
+
     if(phAsset){
         NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
         [formatter setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
         NSString *creationDate = [formatter stringFromDate:phAsset.creationDate];
-        
+
         asset[@"timestamp"] = creationDate;
         // Add more exif data here ...
+
+        asset[@"id"] = phAsset.localIdentifier;
     }
     
     return asset;
 }
 
--(NSMutableDictionary *)mapVideoToAsset:(NSURL *)url error:(NSError **)error {
+-(NSDictionary *)mapVideoToAsset:(NSURL *)url phAsset:(PHAsset * _Nullable)phAsset error:(NSError **)error {
     NSString *fileName = [url lastPathComponent];
     NSString *path = [[NSTemporaryDirectory() stringByStandardizingPath] stringByAppendingPathComponent:fileName];
     NSURL *videoDestinationURL = [NSURL fileURLWithPath:path];
@@ -177,10 +179,10 @@ RCT_EXPORT_METHOD(launchImageLibrary:(NSDictionary *)options callback:(RCTRespon
     if ((target == camera) && [self.options[@"saveToPhotos"] boolValue]) {
         UISaveVideoAtPathToSavedPhotosAlbum(url.path, nil, nil, nil);
     }
-    
+
     if (![url.URLByResolvingSymlinksInPath.path isEqualToString:videoDestinationURL.URLByResolvingSymlinksInPath.path]) {
         NSFileManager *fileManager = [NSFileManager defaultManager];
-        
+
         // Delete file if it already exists
         if ([fileManager fileExistsAtPath:videoDestinationURL.path]) {
             [fileManager removeItemAtURL:videoDestinationURL error:nil];
@@ -204,7 +206,11 @@ RCT_EXPORT_METHOD(launchImageLibrary:(NSDictionary *)options callback:(RCTRespon
     NSMutableDictionary *asset = [[NSMutableDictionary alloc] init];
     asset[@"duration"] = @(roundf(CMTimeGetSeconds([AVAsset assetWithURL:videoDestinationURL].duration)));
     asset[@"uri"] = videoDestinationURL.absoluteString;
-    
+
+    if (phAsset) {
+        asset[@"id"] = phAsset.localIdentifier;
+    }
+
     return asset;
 }
 
@@ -327,27 +333,20 @@ RCT_EXPORT_METHOD(launchImageLibrary:(NSDictionary *)options callback:(RCTRespon
 {
     dispatch_block_t dismissCompletionBlock = ^{
         NSMutableArray<NSDictionary *> *assets = [[NSMutableArray alloc] initWithCapacity:1];
+        PHAsset *asset = nil;
+
+        // If include exif, we fetch the PHAsset, this required library permissions
+        if([self.options[@"includeExif"] boolValue]) {
+          asset = [ImagePickerUtils fetchPHAsset:info];
+        }
 
         if ([info[UIImagePickerControllerMediaType] isEqualToString:(NSString *) kUTTypeImage]) {
-            PHAsset *asset = nil;
             UIImage *image = [ImagePickerManager getUIImageFromInfo:info];
-            
-            // If include exif, we fetch the PHAsset, this required library permissions
-            if([self.options[@"includeExif"] boolValue]) {
-                NSURL *referenceURL = [info objectForKey:UIImagePickerControllerReferenceURL];
-                
-                if(referenceURL != nil) {
-                    // We fetch the asset like this to support iOS 10 and lower
-                    // see: https://stackoverflow.com/a/52529904/4177049
-                    PHFetchResult* fetchResult = [PHAsset fetchAssetsWithALAssetURLs:@[referenceURL] options:nil];
-                    asset = fetchResult.firstObject;
-                }
-            }
             
             [assets addObject:[self mapImageToAsset:image data:[NSData dataWithContentsOfURL:[ImagePickerManager getNSURLFromInfo:info]] phAsset:asset]];
         } else {
             NSError *error;
-            NSDictionary *asset = [self mapVideoToAsset:info[UIImagePickerControllerMediaURL] error:&error];
+            NSDictionary *asset = [self mapVideoToAsset:info[UIImagePickerControllerMediaURL] phAsset:asset error:&error];
             if (asset == nil) {
                 self.callback(@[@{@"errorCode": errOthers, @"errorMessage":  error.localizedFailureReason}]);
                 return;
@@ -425,7 +424,7 @@ RCT_EXPORT_METHOD(launchImageLibrary:(NSDictionary *)options callback:(RCTRespon
 
         if ([provider hasItemConformingToTypeIdentifier:(NSString *)kUTTypeMovie]) {
             [provider loadFileRepresentationForTypeIdentifier:(NSString *)kUTTypeMovie completionHandler:^(NSURL * _Nullable url, NSError * _Nullable error) {
-                [assets addObject:[self mapVideoToAsset:url error:nil]];
+              [assets addObject:[self mapVideoToAsset:url phAsset:asset error:nil]];
                 dispatch_group_leave(completionGroup);
             }];
         }

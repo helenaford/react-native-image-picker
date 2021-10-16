@@ -79,6 +79,7 @@ const actions: Action[] = [
       saveToPhotos: true,
       mediaType: 'photo',
       includeBase64: false,
+      includeExif: true,
     },
   },
   {
@@ -90,6 +91,7 @@ const actions: Action[] = [
       selectionLimit: 0,
       mediaType: 'photo',
       includeBase64: false,
+      includeExif: true,
     },
   },
   {
@@ -98,6 +100,7 @@ const actions: Action[] = [
     options: {
       saveToPhotos: true,
       mediaType: 'video',
+      includeExif: true,
     },
   },
   {
@@ -106,6 +109,7 @@ const actions: Action[] = [
     options: {
       selectionLimit: 0,
       mediaType: 'video',
+      includeExif: true,
     },
   },
   {
@@ -114,6 +118,7 @@ const actions: Action[] = [
     options: {
       selectionLimit: 0,
       mediaType: 'mixed',
+      includeExif: true,
     },
   },
 ];

@@ -1,4 +1,5 @@
 #import "ImagePickerManager.h"
+#import <Photos/Photos.h>
 
 @class PHPickerConfiguration;
 
@@ -13,5 +14,7 @@
 + (NSString*)getFileType:(NSData*)imageData;
 
 + (UIImage*)resizeImage:(UIImage*)image maxWidth:(float)maxWidth maxHeight:(float)maxHeight;
+
++ (PHAsset *)fetchPHAsset:(NSDictionary<NSString *,id> *)info;
     
 @end
