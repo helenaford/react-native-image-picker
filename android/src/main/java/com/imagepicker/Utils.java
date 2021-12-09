@@ -8,7 +8,6 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.hardware.camera2.CameraCharacteristics;
@@ -17,11 +16,11 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
-import android.provider.OpenableColumns;
 import android.util.Base64;
 import android.util.Log;
 import android.webkit.MimeTypeMap;
 
+import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.FileProvider;
 import androidx.exifinterface.media.ExifInterface;
@@ -37,10 +36,14 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
 import java.util.UUID;
 
 import static com.imagepicker.ImagePickerModule.*;
@@ -213,7 +216,7 @@ public class Utils {
 
         } catch (Exception e) {
             e.printStackTrace();
-            return  null;
+            return uri; // cannot resize the image, return the original uri
         }
     }
 
@@ -347,25 +350,39 @@ public class Utils {
     }
 
     static boolean isImageType(Uri uri, Context context) {
-        String imageMimeType = "image/";
-
-        if (uri.getScheme().equals("file")) {
-            return getMimeTypeFromFileUri(uri).contains(imageMimeType);
-        }
-
-        ContentResolver contentResolver = context.getContentResolver();
-        return contentResolver.getType(uri).contains(imageMimeType);
+      return Utils.isContentType("image/", uri, context);
     }
 
     static boolean isVideoType(Uri uri, Context context) {
-        String videoMimeType = "video/";
+        return Utils.isContentType("video/", uri, context);
+    }
 
-        if (uri.getScheme().equals("file")) {
-            return getMimeTypeFromFileUri(uri).contains(videoMimeType);
-        }
-        
-        ContentResolver contentResolver = context.getContentResolver();
-        return contentResolver.getType(uri).contains("video/");
+  /**
+   * Verifies the content typs of a file URI. A helper function
+   * for isVideoType and isImageType
+   *
+   * @param contentMimeType - "video/" or "image/"
+   * @param uri - file uri
+   * @param context - react context
+   * @return a boolean to determine if file is of specified content type i.e. image or video
+   */
+    static boolean isContentType(String contentMimeType, Uri uri, Context context) {
+      final String mimeType = getMimeType(uri, context);
+
+      if(mimeType != null) {
+        return mimeType.contains(contentMimeType);
+      }
+
+      return false;
+    }
+
+    static @Nullable String getMimeType(Uri uri, Context context) {
+      if (uri.getScheme().equals("file")) {
+        return getMimeTypeFromFileUri(uri);
+      }
+
+      ContentResolver contentResolver = context.getContentResolver();
+      return contentResolver.getType(uri);
     }
 
     static List<Uri> collectUrisFromData(Intent data) {
@@ -396,11 +413,13 @@ public class Utils {
         map.putString("type", getMimeTypeFromFileUri(uri));
         map.putInt("width", dimensions[0]);
         map.putInt("height", dimensions[1]);
+        map.putString("type", getMimeType(uri, context));
 
         if (options.includeBase64) {
             map.putString("base64", getBase64String(uri, context));
         }
 
+<<<<<<< HEAD
         if(options.includeExif) {
           try (InputStream inputStream = context.getContentResolver().openInputStream(uri)) {
             ExifInterface exif = new ExifInterface(inputStream);
@@ -411,9 +430,65 @@ public class Utils {
           } catch (Exception e) {
             Log.e("RNIP", "Could not load image exif data: " + e.getMessage());
           }
+=======
+        if(options.includeExtra) {
+          String datetime = getDateTimeExif(uri, context);
+          // Add more exif data here ...
+          map.putString("timestamp", datetime);
+>>>>>>> origin/main
         }
 
         return map;
+    }
+
+  /**
+   * Gets the datetime exif data from a Uri
+   *
+   * @param uri - uri of file
+   * @param context - react context
+   * @return formatted timestamp
+   */
+    static @Nullable String getDateTimeExif(Uri uri, Context context) {
+      try {
+        InputStream inputStream = context.getContentResolver().openInputStream(uri);
+        ExifInterface exif = new ExifInterface(inputStream);
+        String datetimeTag = exif.getAttribute(ExifInterface.TAG_DATETIME);
+        
+        if(datetimeTag != null) {
+          return getDateTimeInUTC(datetimeTag, "yyyy:MM:dd HH:mm:ss");
+        }
+
+        return null;
+      } catch (Exception e) {
+        // This error does not bubble up to RN as we don't want failed datetime retrieval to prevent selection
+        Log.e("RNIP", "Could not load image exif datetime: " + e.getMessage());
+        return null;
+      }
+    }
+
+  /**
+   * Converts a timestamp to a UTC timestamp
+   *
+   * @param value - timestamp
+   * @param format - input format
+   * @return formatted timestamp
+   */
+    static @Nullable String getDateTimeInUTC(String value, String format) {
+      try {
+        Date datetime = new SimpleDateFormat(format, Locale.US).parse(value);
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US);
+        formatter.setTimeZone(TimeZone.getTimeZone("UTC"));
+
+        if (datetime != null) {
+          return formatter.format(datetime);
+        }
+
+        return null;
+      } catch (Exception e) {
+        // This error does not bubble up to RN as we don't want failed datetime parsing to prevent selection
+        Log.e("RNIP", "Could not parse image datetime to UTC: " + e.getMessage());
+        return null;
+      }
     }
 
     static ReadableMap getVideoResponseMap(Uri uri, Context context) {
@@ -423,6 +498,7 @@ public class Utils {
         map.putDouble("fileSize", getFileSize(uri, context));
         map.putInt("duration", getDuration(uri, context));
         map.putString("fileName", fileName);
+        map.putString("type", getMimeType(uri, context));
         return map;
     }
 

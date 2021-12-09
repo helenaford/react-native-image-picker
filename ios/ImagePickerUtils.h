@@ -16,5 +16,8 @@
 + (UIImage*)resizeImage:(UIImage*)image maxWidth:(float)maxWidth maxHeight:(float)maxHeight;
 
 + (PHAsset *)fetchPHAsset:(NSDictionary<NSString *,id> *)info;
++ (NSString *) getFileTypeFromUrl:(NSURL *)url;
+
++ (NSString *) getFileSizeFromUrl:(NSURL *)url;
     
 @end

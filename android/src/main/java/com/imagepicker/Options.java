@@ -6,7 +6,11 @@ import android.text.TextUtils;
 public class Options {
     int selectionLimit;
     Boolean includeBase64;
+<<<<<<< HEAD
     Boolean includeExif;
+=======
+    Boolean includeExtra;
+>>>>>>> origin/main
     int videoQuality = 1;
     int quality;
     int maxWidth;
@@ -21,7 +25,11 @@ public class Options {
         mediaType = options.getString("mediaType");
         selectionLimit = options.getInt("selectionLimit");
         includeBase64 = options.getBoolean("includeBase64");
+<<<<<<< HEAD
         includeExif = options.getBoolean("includeExif");
+=======
+        includeExtra = options.getBoolean("includeExtra");
+>>>>>>> origin/main
 
         String videoQualityString = options.getString("videoQuality");
         if(!TextUtils.isEmpty(videoQualityString) && !videoQualityString.toLowerCase().equals("high")) {
